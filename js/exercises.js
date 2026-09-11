@@ -1,6 +1,14 @@
-// Módulo de Planes y Calificación — Diseño idéntico a Screen 4 de volleytrack-diseno.html
+// Módulo de Planes y Calificación — VolleyTrack
 import { store } from './store.js';
 import { getInitials } from './app.js';
+
+const FUNDAMENTALS = [
+  { id: 'saque',     name: 'Saque',      emoji: '🏐' },
+  { id: 'recepcion', name: 'Recepción',  emoji: '🤲' },
+  { id: 'colocacion',name: 'Colocación', emoji: '👆' },
+  { id: 'remate',    name: 'Remate',     emoji: '⚡' },
+  { id: 'bloqueo',   name: 'Bloqueo',   emoji: '🛡️' }
+];
 
 export function setupExercisesModule(app) {
   return {
@@ -9,93 +17,99 @@ export function setupExercisesModule(app) {
       if (!division) {
         container.innerHTML = `
           <div class="screen-head">
-            <div class="greet">Selecciona una categoría</div>
-            <h2>Plan de ejercicios</h2>
+            <div class="greet">Sin categoría seleccionada</div>
+            <h2>Ejercicios</h2>
           </div>
-          <p style="color:var(--text-muted); font-size:13px;">Elige una división en Inicio para calificar ejercicios.</p>
+          <div class="empty-state">
+            <svg class="icon" viewBox="0 0 24 24" width="36" height="36"><path d="M12 3v18M5 8h14M5 16h14"/></svg>
+            <p>Ve a <strong>Inicio</strong> y selecciona una categoría para calificar ejercicios.</p>
+          </div>
         `;
         return;
       }
 
       const students = store.getStudentsByDivision(divisionId);
-      const todayStr = new Date().toISOString().split('T')[0];
 
-      // Lista de fundamentos predeterminados de voleibol
-      const fundamentals = [
-        { id: 'saque', name: 'Saque' },
-        { id: 'recepcion', name: 'Recepción' },
-        { id: 'colocacion', name: 'Colocación' },
-        { id: 'remate', name: 'Remate' },
-        { id: 'bloqueo', name: 'Bloqueo' }
-      ];
+      // Fecha local correcta (sin bug UTC)
+      const now = new Date();
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
 
-      // Obtener o crear plan de hoy
+      // Obtener o crear plan de hoy (sin score default)
       let plans = store.getExercisePlansByDivision(divisionId);
       let todayPlan = plans.find(p => p.date === todayStr);
 
       if (!todayPlan) {
         todayPlan = store.saveExercisePlan({
           divisionId,
-          title: `Sesión de entrenamiento · ${division.name}`,
+          title: `Sesión · ${division.name}`,
           date: todayStr,
           scaleMax: 10,
-          exercises: fundamentals,
+          exercises: FUNDAMENTALS.map(f => ({ id: f.id, name: f.name })),
           evaluations: {}
         });
       }
 
-      let activeFundId = fundamentals[0].id;
-      let evaluations = todayPlan.evaluations || {};
+      let activeFundId = FUNDAMENTALS[0].id;
+      let evaluations = JSON.parse(JSON.stringify(todayPlan.evaluations || {}));
 
-      const renderScreen = () => {
-        // Calcular mejor jugadora para el cuadro de honor
-        let topName = 'Sin calificar';
-        let topScore = 0;
+      // Helpers
+      const getScore = (studentId) => {
+        return evaluations[studentId]?.scores?.[activeFundId];
+      };
 
+      const getTopPlayer = () => {
+        let topName = null;
+        let topScore = -Infinity;
         students.forEach(st => {
-          const stEval = evaluations[st.id]?.scores || {};
-          const currentVal = stEval[activeFundId];
-          if (typeof currentVal === 'number' && currentVal > topScore) {
-            topScore = currentVal;
+          const v = getScore(st.id);
+          if (typeof v === 'number' && v > topScore) {
+            topScore = v;
             topName = st.name;
           }
         });
+        return { topName, topScore };
+      };
+
+      // Render inicial completo
+      const renderInitial = () => {
+        const { topName, topScore } = getTopPlayer();
+        const activeFund = FUNDAMENTALS.find(f => f.id === activeFundId);
 
         container.innerHTML = `
           <div class="screen-head">
             <div class="greet">Sesión de hoy · ${division.name}</div>
-            <h2>Plan de ejercicios</h2>
+            <h2>Ejercicios</h2>
           </div>
 
-          <!-- Pestañas de Fundamentos -->
           <div class="fund-tabs" id="fundTabsBar">
-            ${fundamentals.map(fund => `
+            ${FUNDAMENTALS.map(fund => `
               <div class="fund-tab ${fund.id === activeFundId ? 'active' : ''}" data-fund="${fund.id}">
                 ${fund.name}
               </div>
             `).join('')}
           </div>
 
-          <!-- Filas de calificación por alumna -->
           <div style="overflow-y:auto; flex:1; margin:0 -4px;" id="rateRowsBox">
             ${students.length === 0 ? `
-              <div style="text-align:center; padding:32px 16px; color:var(--text-muted); font-size:13px;">
-                No hay jugadoras en ${division.name}.
+              <div class="empty-state">
+                <p>No hay jugadoras en ${division.name}.</p>
               </div>
             ` : `
               ${students.map(s => {
-                const stEval = evaluations[s.id]?.scores || {};
-                const score = stEval[activeFundId] !== undefined ? stEval[activeFundId] : 7;
+                const score = getScore(s.id);
+                const hasScore = typeof score === 'number';
                 return `
                   <div class="rate-row" data-id="${s.id}">
                     <div class="avatar">${getInitials(s.name)}</div>
-                    <div class="player-info" style="flex:1">
+                    <div class="player-info" style="flex:1; min-width:0;">
                       <div class="pname">${s.name}</div>
                     </div>
                     <div class="stepper">
-                      <button class="btn-step-minus" data-student="${s.id}">−</button>
-                      <div class="val" id="val-${s.id}">${score}</div>
-                      <button class="btn-step-plus" data-student="${s.id}">+</button>
+                      <button class="btn-step-minus" data-student="${s.id}" ${hasScore && score <= 1 ? 'disabled' : ''}>−</button>
+                      <div class="val" id="val-${s.id}" style="${!hasScore ? 'color:var(--text-faint);' : ''}">
+                        ${hasScore ? score : '—'}
+                      </div>
+                      <button class="btn-step-plus" data-student="${s.id}" ${hasScore && score >= 10 ? 'disabled' : ''}>+</button>
                     </div>
                   </div>
                 `;
@@ -103,8 +117,7 @@ export function setupExercisesModule(app) {
             `}
           </div>
 
-          <!-- Cuadro de Honor -->
-          <div class="honor-card">
+          <div class="honor-card" id="honorCard">
             <div class="badge">
               <svg class="icon" viewBox="0 0 24 24" width="18" height="18" stroke="#f7e9ec">
                 <path d="M8 21h8M12 17v4M6 4h12l-1 6a5 5 0 0 1-10 0z"/>
@@ -112,58 +125,110 @@ export function setupExercisesModule(app) {
               </svg>
             </div>
             <div class="htext">
-              <div class="h1">Cuadro de honor (${fundamentals.find(f => f.id === activeFundId)?.name})</div>
-              <div class="h2">${topScore > 0 ? `${topName} · ${topScore}/10` : 'En evaluación'}</div>
+              <div class="h1">Mejor en ${activeFund?.name || ''}</div>
+              <div class="h2" id="honorText">${topScore > -Infinity && topName ? `${topName} · ${topScore}/10` : 'Sin calificar aún'}</div>
             </div>
           </div>
         `;
 
-        // Eventos de Pestañas de Fundamentos
+        // Eventos de tabs
         container.querySelectorAll('.fund-tab').forEach(tab => {
           tab.addEventListener('click', () => {
             activeFundId = tab.dataset.fund;
             if (navigator.vibrate) navigator.vibrate(8);
-            renderScreen();
+            // Re-render solo el contenido (no los tabs header)
+            switchFundamental();
           });
         });
 
-        // Eventos Stepper (+ y -)
-        container.querySelectorAll('.btn-step-minus').forEach(btn => {
-          btn.addEventListener('click', () => {
-            updateStudentScore(btn.dataset.student, -1);
-          });
-        });
+        // Eventos stepper — actualización puntual, sin re-render total
+        container.querySelector('#rateRowsBox')?.addEventListener('click', (e) => {
+          const minusBtn = e.target.closest('.btn-step-minus');
+          const plusBtn = e.target.closest('.btn-step-plus');
+          const btn = minusBtn || plusBtn;
+          if (!btn) return;
 
-        container.querySelectorAll('.btn-step-plus').forEach(btn => {
-          btn.addEventListener('click', () => {
-            updateStudentScore(btn.dataset.student, 1);
-          });
+          const studentId = btn.dataset.student;
+          const delta = minusBtn ? -1 : 1;
+          updateScore(studentId, delta);
         });
       };
 
-      const updateStudentScore = (studentId, delta) => {
+      // Actualizar puntualmente el DOM del score (sin parpadear toda la pantalla)
+      const updateScore = (studentId, delta) => {
         if (!evaluations[studentId]) evaluations[studentId] = { scores: {} };
         if (!evaluations[studentId].scores) evaluations[studentId].scores = {};
 
         let current = evaluations[studentId].scores[activeFundId];
-        if (current === undefined) current = 7;
-        current += delta;
-        if (current < 1) current = 1;
-        if (current > 10) current = 10;
+        // Si no tiene score, iniciar desde 5 (no desde 7)
+        if (current === undefined) current = delta > 0 ? 4 : 6;
+        current = Math.max(1, Math.min(10, current + delta));
 
         evaluations[studentId].scores[activeFundId] = current;
 
-        // Auto-guardado
-        store.saveExercisePlan({
-          id: todayPlan.id,
-          evaluations
-        });
-
+        // Guardar
+        store.saveExercisePlan({ id: todayPlan.id, evaluations });
         if (navigator.vibrate) navigator.vibrate(8);
-        renderScreen();
+
+        // Actualizar solo el valor del DOM (sin re-render)
+        const valEl = container.querySelector(`#val-${studentId}`);
+        if (valEl) {
+          valEl.textContent = current;
+          valEl.style.color = '';
+        }
+
+        // Actualizar botones +/- del mismo stepper
+        const stepperEl = container.querySelector(`.rate-row[data-id="${studentId}"] .stepper`);
+        if (stepperEl) {
+          const minus = stepperEl.querySelector('.btn-step-minus');
+          const plus = stepperEl.querySelector('.btn-step-plus');
+          if (minus) minus.disabled = current <= 1;
+          if (plus) plus.disabled = current >= 10;
+        }
+
+        // Actualizar solo el cuadro de honor
+        updateHonorCard();
       };
 
-      renderScreen();
+      const updateHonorCard = () => {
+        const { topName, topScore } = getTopPlayer();
+        const activeFund = FUNDAMENTALS.find(f => f.id === activeFundId);
+        const honorEl = container.querySelector('#honorText');
+        const h1El = container.querySelector('.honor-card .h1');
+        if (honorEl) honorEl.textContent = topScore > -Infinity && topName ? `${topName} · ${topScore}/10` : 'Sin calificar aún';
+        if (h1El) h1El.textContent = `Mejor en ${activeFund?.name || ''}`;
+      };
+
+      // Cambiar de fundamento: re-render solo los valores del stepper, no toda la pantalla
+      const switchFundamental = () => {
+        // Actualizar tabs activos visualmente
+        container.querySelectorAll('.fund-tab').forEach(tab => {
+          tab.classList.toggle('active', tab.dataset.fund === activeFundId);
+        });
+
+        // Actualizar los steppers de cada alumna
+        students.forEach(s => {
+          const score = getScore(s.id);
+          const hasScore = typeof score === 'number';
+          const valEl = container.querySelector(`#val-${s.id}`);
+          const stepperEl = container.querySelector(`.rate-row[data-id="${s.id}"] .stepper`);
+
+          if (valEl) {
+            valEl.textContent = hasScore ? score : '—';
+            valEl.style.color = hasScore ? '' : 'var(--text-faint)';
+          }
+          if (stepperEl) {
+            const minus = stepperEl.querySelector('.btn-step-minus');
+            const plus = stepperEl.querySelector('.btn-step-plus');
+            if (minus) minus.disabled = hasScore && score <= 1;
+            if (plus) plus.disabled = hasScore && score >= 10;
+          }
+        });
+
+        updateHonorCard();
+      };
+
+      renderInitial();
     }
   };
 }

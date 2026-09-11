@@ -76,6 +76,14 @@ class AppVolley {
   }
 
   renderActiveTab() {
+    // Animación de entrada entre tabs
+    this.mainContainer.classList.remove('tab-enter');
+    void this.mainContainer.offsetWidth; // force reflow
+    this.mainContainer.classList.add('tab-enter');
+
+    // Actualizar visibilidad de botones del topbar según la tab
+    this.updateTopbarForTab(this.activeTab);
+
     switch (this.activeTab) {
       case 'divisions':
         this.renderDivisionsView();
@@ -100,24 +108,38 @@ class AppVolley {
     }
   }
 
+  updateTopbarForTab(tab) {
+    const btnAddAlumna   = document.getElementById('btnQuickAddAlumna');
+    const btnAddDivision = document.getElementById('btnNewDivisionHeader');
+
+    // Mostrar "+Alumna" solo en tabs donde tiene sentido
+    const showAddAlumna  = ['divisions', 'division-detail', 'students'].includes(tab);
+    // Mostrar "+ División" solo en Inicio y detalle
+    const showAddDiv     = ['divisions', 'division-detail'].includes(tab);
+
+    if (btnAddAlumna)   btnAddAlumna.style.display   = showAddAlumna  ? '' : 'none';
+    if (btnAddDivision) btnAddDivision.style.display = showAddDiv     ? '' : 'none';
+  }
+
   // =========================================================================
   // SCREEN 1: DIVISIONES (Tus divisiones / stat-strip / div-card)
   // =========================================================================
   renderDivisionsView() {
     const divisions = store.getDivisions();
     const allStudents = store.getStudents();
-    const todayStr = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
 
-    // Calcular cuántas tienen asistencia registrada hoy
+    // Cuántas divisiones no tienen asistencia registrada hoy
     let pendingCount = 0;
     divisions.forEach(d => {
       const hist = store.getAttendanceHistoryForDivision(d.id);
       if (!hist.some(h => h.date === todayStr)) pendingCount++;
     });
 
-    // Formato de saludo: "Hoy · miércoles"
-    const dayName = new Date().toLocaleDateString('es-CO', { weekday: 'long' });
-    const greetStr = `Hoy · ${dayName}`;
+    const dayName = now.toLocaleDateString('es-CO', { weekday: 'long' });
+    const capDay = dayName.charAt(0).toUpperCase() + dayName.slice(1);
+    const greetStr = `Hoy · ${capDay}`;
 
     this.mainContainer.innerHTML = `
       <div class="screen-head">
@@ -135,7 +157,7 @@ class AppVolley {
           <div class="lab">Alumnas</div>
         </div>
         <div class="stat-chip">
-          <div class="num">${pendingCount}</div>
+          <div class="num" style="color:${pendingCount > 0 ? 'var(--wine)' : '#4ade80'};">${pendingCount}</div>
           <div class="lab">Por pasar hoy</div>
         </div>
       </div>
@@ -144,33 +166,30 @@ class AppVolley {
         ${divisions.length === 0 ? `
           <div class="stat-chip" style="text-align:center; padding:24px 16px;">
             <p style="color:var(--text-muted); font-size:13px; margin-bottom:12px;">No tienes categorías creadas.</p>
-            <button class="btn-primary" id="btnCreateFirstSub" style="margin:0 auto;">Crear División</button>
+            <button class="btn-primary" id="btnCreateFirstSub" style="margin:0 auto;">Crear Primera División</button>
           </div>
         ` : `
           ${divisions.map(sub => {
             const studentsInSub = allStudents.filter(s => s.divisionId === sub.id);
             const history = store.getAttendanceHistoryForDivision(sub.id);
-            
-            // Calcular porcentaje de asistencia promedio
-            let pct = 75; // default representativo
-            if (history.length > 0) {
+
+            // % de asistencia real solo si hay historial — no inventamos números
+            let pctDisplay = '--';
+            let pctValue = 0;
+            if (history.length > 0 && studentsInSub.length > 0) {
               const latest = history[0];
               const rec = latest.records || {};
               const present = Object.values(rec).filter(v => v === 'P').length;
-              if (studentsInSub.length > 0) {
-                pct = Math.round((present / studentsInSub.length) * 100);
-              }
-            } else {
-              // Valores visuales armónicos según número de jugadoras
-              pct = studentsInSub.length >= 10 ? 82 : (studentsInSub.length >= 6 ? 60 : 40);
+              pctValue = Math.round((present / studentsInSub.length) * 100);
+              pctDisplay = pctValue + '%';
             }
 
             return `
               <div class="div-card" data-id="${sub.id}">
-                <div class="div-ring" style="--pct:${pct}%"><span>${pct}%</span></div>
+                <div class="div-ring" style="--pct:${pctValue}%"><span>${pctDisplay}</span></div>
                 <div class="div-info">
                   <div class="name">${sub.name}</div>
-                  <div class="sub">${studentsInSub.length} jugadoras · ${sub.ageRange || sub.category}</div>
+                  <div class="sub">${studentsInSub.length} jugadoras${sub.ageRange ? ' · ' + sub.ageRange : ''}</div>
                 </div>
                 <svg class="icon chev" viewBox="0 0 24 24" width="16" height="16"><path d="M9 6l6 6-6 6"/></svg>
               </div>
@@ -210,9 +229,20 @@ class AppVolley {
 
     const students = store.getStudentsByDivision(divisionId);
 
+    // % de asistencia real
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    const history = store.getAttendanceHistoryForDivision(divisionId);
+    const todayAtt = history.find(h => h.date === todayStr);
+    const presentToday = todayAtt ? Object.values(todayAtt.records || {}).filter(v => v === 'P').length : null;
+
     this.mainContainer.innerHTML = `
       <div class="screen-head">
-        <div class="greet">${division.ageRange} · ${division.category}</div>
+        <button class="btn-back" id="btnBackToDivisions">
+          <svg class="icon" viewBox="0 0 24 24" width="15" height="15"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+          Inicio
+        </button>
+        <div class="greet">${division.ageRange || division.category || 'Categoría'}</div>
         <div class="screen-head-row">
           <h2>${division.name}</h2>
           <button class="btn-sm-ghost" id="btnEditDivision">Editar</button>
@@ -220,25 +250,44 @@ class AppVolley {
       </div>
 
       <div class="stat-strip">
-        <div class="stat-chip"><div class="num">${students.length}</div><div class="lab">Jugadoras</div></div>
-        <div class="stat-chip" id="btnGoAttendanceDirect" style="cursor:pointer;">
-          <div class="num" style="color:var(--wine);">Asistencia</div>
-          <div class="lab">Pasar lista hoy ›</div>
+        <div class="stat-chip">
+          <div class="num">${students.length}</div>
+          <div class="lab">Jugadoras</div>
         </div>
-        <div class="stat-chip" id="btnGoExercisesDirect" style="cursor:pointer;">
-          <div class="num" style="color:var(--wine);">Ejercicios</div>
-          <div class="lab">Calificar sesión ›</div>
+        <div class="stat-chip">
+          <div class="num" style="color:${presentToday !== null ? 'var(--wine)' : 'var(--text-muted)'};">
+            ${presentToday !== null ? presentToday : '--'}
+          </div>
+          <div class="lab">Presentes hoy</div>
+        </div>
+        <div class="stat-chip">
+          <div class="num">${history.length}</div>
+          <div class="lab">Sesiones</div>
         </div>
       </div>
 
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; margin-top:6px;">
+      <div class="div-action-row">
+        <button class="btn-action-tile" id="btnGoAttendanceDirect">
+          <svg class="icon" viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 2v4M16 2v4M3 10h18"/><path d="M7.5 14.5l2 2 4-4"/></svg>
+          <span>Asistencia</span>
+        </button>
+        <button class="btn-action-tile" id="btnGoExercisesDirect">
+          <svg class="icon" viewBox="0 0 24 24" width="20" height="20"><path d="M12 3v18M5 8h14M5 16h14"/></svg>
+          <span>Ejercicios</span>
+        </button>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
         <span style="font-size:13px; font-weight:700; color:var(--text-muted);">Plantel (${students.length})</span>
         <button class="btn-sm-ghost" id="btnAddStudentToSub">+ Alumna</button>
       </div>
 
       <div style="overflow-y:auto; flex:1; margin:0 -4px;">
         ${students.length === 0 ? `
-          <p style="color:var(--text-faint); font-size:13px; text-align:center; padding:24px 0;">No hay jugadoras en esta división.</p>
+          <div class="empty-state">
+            <svg class="icon" viewBox="0 0 24 24" width="32" height="32"><circle cx="9" cy="8" r="3"/><path d="M2 20c0-3 3-5 7-5s7 2 7 5"/><circle cx="17" cy="8" r="2.4"/><path d="M16 15c2.8.3 5 2 5 5"/></svg>
+            <p>No hay jugadoras en esta división.<br>Toca <strong>+ Alumna</strong> para agregar.</p>
+          </div>
         ` : `
           ${students.map(s => {
             const age = store.calculateAge(s.birthDate);
@@ -257,16 +306,23 @@ class AppVolley {
       </div>
     `;
 
+    // Botón volver
+    this.mainContainer.querySelector('#btnBackToDivisions')?.addEventListener('click', () => {
+      this.activeTab = 'divisions';
+      this.updateNavActiveState('divisions');
+      this.renderActiveTab();
+    });
+
     this.mainContainer.querySelector('#btnGoAttendanceDirect')?.addEventListener('click', () => {
       this.activeTab = 'attendance';
       this.updateNavActiveState('attendance');
-      this.attendanceModule.renderAttendanceView(this.mainContainer, divisionId);
+      this.renderActiveTab();
     });
 
     this.mainContainer.querySelector('#btnGoExercisesDirect')?.addEventListener('click', () => {
       this.activeTab = 'exercises';
       this.updateNavActiveState('exercises');
-      this.exercisesModule.renderPlansListView(this.mainContainer, divisionId);
+      this.renderActiveTab();
     });
 
     this.mainContainer.querySelector('#btnAddStudentToSub')?.addEventListener('click', () => {
