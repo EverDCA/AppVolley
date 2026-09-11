@@ -7,6 +7,53 @@ export const AppUI = {
     document.querySelectorAll('.modal-overlay').forEach(m => m.remove());
   },
 
+  // Guarda o descarga un archivo de forma 100% compatible con Android WebView y navegadores
+  saveOrDownloadFile(blob, fileName, mimeType = 'application/octet-stream') {
+    // 1. En APK Android: usar AndroidBridge para guardar en Descargas y abrir menú Compartir nativo
+    if (window.AndroidBridge && typeof window.AndroidBridge.downloadFile === 'function') {
+      const reader = new FileReader();
+      reader.onload = function() {
+        const base64 = (reader.result || '').split(',')[1];
+        if (base64) {
+          window.AndroidBridge.downloadFile(base64, fileName, mimeType);
+        }
+      };
+      reader.readAsDataURL(blob);
+      return;
+    }
+
+    // 2. En móviles con Web Share API para archivos:
+    try {
+      const file = new File([blob], fileName, { type: mimeType });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({
+          files: [file],
+          title: fileName,
+          text: fileName
+        }).catch(() => {
+          this._fallbackDownload(blob, fileName);
+        });
+        return;
+      }
+    } catch (e) {}
+
+    // 3. Fallback estándar para navegadores de PC
+    this._fallbackDownload(blob, fileName);
+  },
+
+  _fallbackDownload(blob, fileName) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 1000);
+  },
+
   // Vincula el cierre de un modal en un solo toque (touch/pointer/click)
   bindModalClose(modal, onClose) {
     let isClosing = false;

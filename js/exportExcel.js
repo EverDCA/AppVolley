@@ -169,14 +169,7 @@ export function exportDivisionAttendanceToXlsx(divisionId, app = null) {
     const blob = new Blob([wbout], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = cleanFileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    AppUI.saveOrDownloadFile(blob, cleanFileName, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 
     if (app && app.showToast) {
       app.showToast(`Excel de ${division.name} descargado ✓`, 'success');

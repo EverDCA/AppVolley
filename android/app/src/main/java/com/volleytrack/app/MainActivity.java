@@ -1,23 +1,32 @@
 package com.volleytrack.app;
 
 import android.annotation.SuppressLint;
+import android.content.ContentValues;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.view.View;
+import android.os.Environment;
+import android.provider.MediaStore;
+import android.util.Base64;
 import android.view.Window;
 import android.view.WindowManager;
 import android.webkit.DownloadListener;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import android.widget.Toast;
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.FileProvider;
 import androidx.webkit.WebViewAssetLoader;
 import androidx.webkit.WebViewClientCompat;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -39,9 +48,10 @@ public class MainActivity extends AppCompatActivity {
 
         webView = findViewById(R.id.webView);
 
+        // Puente JavaScript <-> Android para guardar y compartir archivos (Excel, respaldos JSON)
+        webView.addJavascriptInterface(new AndroidBridge(this), "AndroidBridge");
+
         // WebViewAssetLoader permite cargar assets locales bajo el dominio seguro
-        // https://appassets.androidplatform.net/assets/
-        // Esto permite que los módulos ES6 (import/export) y localStorage funcionen 100% offline
         final WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
                 .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
                 .build();
@@ -89,10 +99,13 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // Manejar descargas directas de archivos (ej. descarga de APK o respaldos)
+        // Manejar descargas externas (ej. APK desde GitHub Releases)
         webView.setDownloadListener(new DownloadListener() {
             @Override
             public void onDownloadStart(String url, String userAgent, String contentDisposition, String mimetype, long contentLength) {
+                if (url == null || url.startsWith("blob:") || url.startsWith("data:")) {
+                    return; // Ignorar blob/data URLs; se procesan vía AndroidBridge
+                }
                 try {
                     Intent intent = new Intent(Intent.ACTION_VIEW);
                     intent.setData(Uri.parse(url));
@@ -106,7 +119,6 @@ public class MainActivity extends AppCompatActivity {
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
-        // Habilita el almacenamiento local permanente en el teléfono (Base de datos interna)
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
         settings.setAllowFileAccess(true);
@@ -132,6 +144,76 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+    }
+
+    // =========================================================================
+    // PUENTE NATIVO ANDROID: GUARDAR EN DESCARGAS Y COMPARTIR ARCHIVOS
+    // =========================================================================
+    public static class AndroidBridge {
+        private final MainActivity activity;
+
+        public AndroidBridge(MainActivity activity) {
+            this.activity = activity;
+        }
+
+        @JavascriptInterface
+        public void downloadFile(String base64Data, String fileName, String mimeType) {
+            activity.runOnUiThread(() -> {
+                try {
+                    byte[] data = Base64.decode(base64Data, Base64.DEFAULT);
+
+                    // 1. Guardar en la carpeta pública "Descargas" (Downloads)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        ContentValues values = new ContentValues();
+                        values.put(MediaStore.Downloads.DISPLAY_NAME, fileName);
+                        values.put(MediaStore.Downloads.MIME_TYPE, mimeType);
+                        values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+
+                        Uri uri = activity.getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                        if (uri != null) {
+                            try (OutputStream os = activity.getContentResolver().openOutputStream(uri)) {
+                                if (os != null) {
+                                    os.write(data);
+                                    os.flush();
+                                }
+                            }
+                        }
+                    } else {
+                        File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                        if (!downloadsDir.exists()) downloadsDir.mkdirs();
+                        File file = new File(downloadsDir, fileName);
+                        try (FileOutputStream fos = new FileOutputStream(file)) {
+                            fos.write(data);
+                            fos.flush();
+                        }
+                    }
+
+                    // 2. Guardar copia en caché para compartir de inmediato con FileProvider
+                    File cacheDir = new File(activity.getCacheDir(), "exports");
+                    if (!cacheDir.exists()) cacheDir.mkdirs();
+                    File shareFile = new File(cacheDir, fileName);
+                    try (FileOutputStream fos = new FileOutputStream(shareFile)) {
+                        fos.write(data);
+                        fos.flush();
+                    }
+
+                    Uri shareUri = FileProvider.getUriForFile(activity, "com.volleytrack.app.fileprovider", shareFile);
+
+                    Toast.makeText(activity, "Guardado en Descargas: " + fileName, Toast.LENGTH_LONG).show();
+
+                    // 3. Abrir menú nativo de Android: Abrir con Excel, Compartir por WhatsApp, Guardar en Drive, etc.
+                    Intent shareIntent = new Intent(Intent.ACTION_SEND);
+                    shareIntent.setType(mimeType);
+                    shareIntent.putExtra(Intent.EXTRA_STREAM, shareUri);
+                    shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    activity.startActivity(Intent.createChooser(shareIntent, "Abrir o compartir " + fileName));
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    Toast.makeText(activity, "Error guardando archivo: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
     }
 
     @Override

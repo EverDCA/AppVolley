@@ -494,12 +494,8 @@ class AppVolley {
     });
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `asistencias_voley_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const fileName = `asistencias_voley_${new Date().toISOString().split('T')[0]}.csv`;
+    AppUI.saveOrDownloadFile(blob, fileName, 'text/csv');
     this.showToast('Archivo CSV generado', 'success');
   }
 
@@ -999,13 +995,9 @@ class AppVolley {
     this.mainContainer.querySelector('#btnExportBackup')?.addEventListener('click', () => {
       const backup = store.exportFullBackup();
       const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
       const dateStr = new Date().toISOString().split('T')[0];
-      a.href = url;
-      a.download = `VolleyTrack_Respaldo_${dateStr}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const fileName = `VolleyTrack_Respaldo_${dateStr}.json`;
+      AppUI.saveOrDownloadFile(blob, fileName, 'application/json');
       this.showToast('Respaldo guardado en descargas', 'success');
     });
 
