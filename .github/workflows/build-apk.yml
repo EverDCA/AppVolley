@@ -20,9 +20,6 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Configurar Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Sincronizar archivos Web a Android Assets
         run: |
           mkdir -p android/app/src/main/assets/css
@@ -32,21 +29,30 @@ jobs:
           cp -r css/* android/app/src/main/assets/css/
           cp -r js/* android/app/src/main/assets/js/
 
-      - name: Configurar Gradle
+      - name: Instalar y Configurar Gradle 8.5
         uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.5'
+
+      - name: Aceptar licencias de Android SDK
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
       - name: Compilar APK (assembleDebug)
         run: |
           cd android
-          gradle assembleDebug --stacktrace
+          gradle assembleDebug --no-daemon --stacktrace
 
-      - name: Renombrar APK a VolleyTrack.apk
+      - name: Preparar APK para descarga
         run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk android/app/build/outputs/apk/debug/VolleyTrack.apk
+          mkdir -p apk-output
+          cp android/app/build/outputs/apk/debug/*.apk apk-output/VolleyTrack.apk
+          ls -la apk-output/
 
       - name: Subir APK generado como Artefacto descargable
         uses: actions/upload-artifact@v4
         with:
           name: VolleyTrack-APK
-          path: android/app/build/outputs/apk/debug/VolleyTrack.apk
+          path: apk-output/VolleyTrack.apk
           retention-days: 30
+
