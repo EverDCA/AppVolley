@@ -602,8 +602,77 @@ svg.icon {
 }
 
 /* ==========================================================================
-   PANTALLA 3: ASISTENCIA (DATE-NAV, MARK-ALL, ATT-ROW, SEG)
+   PANTALLA 3: ASISTENCIA (DATE-NAV, SUMMARY STRIP, ATT-ROW, SEG)
    ========================================================================== */
+
+/* Resumen rápido P/A/T/J al tope de la sesión */
+.att-summary-strip {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.att-sum-chip {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px;
+  border-radius: 12px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface);
+}
+
+.att-sum-chip .num {
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.att-sum-chip .lab {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-faint);
+  letter-spacing: 0.02em;
+}
+
+.att-sum-chip.present  { border-color: rgba(74, 222, 128, 0.3); }
+.att-sum-chip.present .num { color: #4ade80; }
+
+.att-sum-chip.absent   { border-color: rgba(170, 34, 63, 0.35); }
+.att-sum-chip.absent .num  { color: var(--wine); }
+
+.att-sum-chip.late     { border-color: rgba(251, 191, 36, 0.3); }
+.att-sum-chip.late .num    { color: #fbbf24; }
+
+.att-sum-chip.justified { border-color: rgba(148, 163, 184, 0.3); }
+.att-sum-chip.justified .num { color: var(--text-muted); }
+
+/* Contenedor scroll de filas de asistencia */
+.att-rows-scroll {
+  overflow-y: auto;
+  flex: 1;
+  margin: 0 -4px;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Contenedor scroll de filas de ejercicios */
+.ex-rows-scroll {
+  overflow-y: auto;
+  flex: 1;
+  margin: 0 -4px;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Zonas de sesión (asistencia y ejercicios) necesitan ser flex col */
+#attSessionBox,
+#exSessionBox {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
 
 .date-nav {
   display: flex;
