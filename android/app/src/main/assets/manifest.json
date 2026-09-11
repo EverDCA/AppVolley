@@ -1,0 +1,24 @@
+{
+  "name": "VolleyTrack - Asistencia & Vóley",
+  "short_name": "VolleyTrack",
+  "description": "App de registro de asistencias y planes de ejercicios técnicos de voleibol por categorías Sub.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#09090c",
+  "theme_color": "#09090c",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='38' fill='%2309090c'/><circle cx='96' cy='96' r='82' fill='%238a132c'/><circle cx='96' cy='96' r='66' fill='none' stroke='%23ffffff' stroke-width='8'/><path d='M36,96 Q96,36 156,96' fill='none' stroke='%23ffffff' stroke-width='7'/><path d='M36,96 Q96,156 156,96' fill='none' stroke='%23ffffff' stroke-width='7'/></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='98' fill='%2309090c'/><circle cx='256' cy='256' r='220' fill='%238a132c'/><circle cx='256' cy='256' r='180' fill='none' stroke='%23ffffff' stroke-width='16'/><path d='M96,256 Q256,96 416,256' fill='none' stroke='%23ffffff' stroke-width='14'/><path d='M96,256 Q256,416 416,256' fill='none' stroke='%23ffffff' stroke-width='14'/></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

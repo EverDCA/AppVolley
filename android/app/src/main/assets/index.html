@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>VolleyTrack — Control de Vóley</title>
+  
+  <meta name="theme-color" content="#0c0c0e" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="application-name" content="VolleyTrack" />
+
+  <!-- Google Fonts: Manrope -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="manifest" href="manifest.json?v=4" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='48' fill='%23aa223f'/><circle cx='50' cy='50' r='38' fill='none' stroke='%23ffffff' stroke-width='6'/><path d='M20,50 Q50,20 80,50' fill='none' stroke='%23ffffff' stroke-width='5'/><path d='M20,50 Q50,80 80,50' fill='none' stroke='%23ffffff' stroke-width='5'/></svg>" />
+
+  <!-- Estilos con versionado anti-caché v4 -->
+  <link rel="stylesheet" href="css/styles.css?v=4" />
+</head>
+<body>
+  <div class="phone" id="appRoot">
+    <!-- Notch y Statusbar del diseño -->
+    <div class="notch"></div>
+    <div class="statusbar"></div>
+
+    <!-- Topbar -->
+    <header class="app-topbar">
+      <div class="topbar-brand">
+        <svg class="icon brand-svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/></svg>
+        <div>Volley<span>Track</span></div>
+      </div>
+      <div class="topbar-actions">
+        <button class="top-action-btn" id="btnQuickAddAlumna" title="Añadir Alumna">
+          <svg class="icon" viewBox="0 0 24 24" width="18" height="18"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+        </button>
+        <button class="top-action-btn highlight" id="btnNewDivisionHeader" title="Nueva Sub / Categoría">
+          <svg class="icon" viewBox="0 0 24 24" width="18" height="18"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content View -->
+    <main class="app-content" id="appContent">
+      <!-- Contenido dinámico renderizado por app.js -->
+    </main>
+
+    <!-- Bottom Nav -->
+    <nav class="bottom-nav">
+      <button class="nav-item active" data-tab="divisions">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M4 11l8-6 8 6v8a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"/></svg>
+        <span>Inicio</span>
+      </button>
+      <button class="nav-item" data-tab="students">
+        <svg class="icon" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M2 20c0-3 3-5 7-5s7 2 7 5"/><circle cx="17" cy="8" r="2.4"/><path d="M16 15c2.8.3 5 2 5 5"/></svg>
+        <span>Alumnas</span>
+      </button>
+      <button class="nav-item" data-tab="attendance">
+        <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 2v4M16 2v4M3 10h18"/><path d="M7.5 14.5l2 2 4-4"/></svg>
+        <span>Asistencia</span>
+      </button>
+      <button class="nav-item" data-tab="exercises">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M12 3v18M5 8h14M5 16h14"/></svg>
+        <span>Planes</span>
+      </button>
+      <button class="nav-item" data-tab="settings">
+        <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>Ajustes</span>
+      </button>
+    </nav>
+  </div>
+
+  <script type="module" src="js/app.js?v=4"></script>
+</body>
+</html>

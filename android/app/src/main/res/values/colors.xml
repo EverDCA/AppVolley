@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg_dark">#0c0c0e</color>
+    <color name="surface_dark">#161619</color>
+    <color name="wine_primary">#aa223f</color>
+    <color name="wine_dark">#78152a</color>
+    <color name="text_white">#f3f1ee</color>
+</resources>
