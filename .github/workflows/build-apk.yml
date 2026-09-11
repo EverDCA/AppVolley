@@ -42,15 +42,21 @@ jobs:
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      - name: Compilar APK (assembleDebug)
+      - name: Compilar APK
         run: |
           cd android
-          gradle assembleDebug --no-daemon --stacktrace
+          gradle assembleRelease assembleDebug --no-daemon --stacktrace || gradle assembleDebug --no-daemon --stacktrace
 
       - name: Preparar APK para publicar
         run: |
           mkdir -p apk-output
-          cp android/app/build/outputs/apk/debug/*.apk apk-output/VolleyTrack.apk
+          if [ -f android/app/build/outputs/apk/release/app-release.apk ]; then
+            cp android/app/build/outputs/apk/release/app-release.apk apk-output/VolleyTrack.apk
+          elif [ -f android/app/build/outputs/apk/debug/app-debug.apk ]; then
+            cp android/app/build/outputs/apk/debug/app-debug.apk apk-output/VolleyTrack.apk
+          else
+            cp android/app/build/outputs/apk/*/*.apk apk-output/VolleyTrack.apk
+          fi
           ls -la apk-output/
 
       - name: Obtener fecha y hash del commit

@@ -6,22 +6,33 @@ android {
     namespace 'com.volleytrack.app'
     compileSdk 34
 
+    signingConfigs {
+        release {
+            storeFile file('keystore/volleytrack.keystore')
+            storePassword 'volleytrack2026'
+            keyAlias 'volleytrack'
+            keyPassword 'volleytrack2026'
+        }
+    }
+
     defaultConfig {
         applicationId "com.volleytrack.app"
         minSdk 21
         targetSdk 34
-        versionCode 4
-        versionName "1.0.3"
+        versionCode 5
+        versionName "1.0.4"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
+            signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
         debug {
+            signingConfig signingConfigs.release
             applicationIdSuffix ""
             debuggable true
         }
