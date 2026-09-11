@@ -1,6 +1,8 @@
 // Módulo de Asistencia — VolleyTrack
 import { store } from './store.js';
 import { getInitials } from './app.js';
+import { AppUI } from './ui.js';
+import { exportDivisionAttendanceToXlsx } from './exportExcel.js';
 
 // Fecha local del dispositivo (sin el bug de UTC)
 function getLocalDateStr(date = new Date()) {
@@ -111,6 +113,12 @@ export function setupAttendanceModule(app) {
               : `<svg class="icon" viewBox="0 0 24 24" width="16" height="16" stroke="#f7e9ec"><path d="M20 6L9 17l-5-5"/></svg> Marcar todas presentes`}
           </button>
 
+          <!-- Botón Exportar Asistencias a Excel -->
+          <button class="att-export-btn" id="btnExportAttendanceXlsx" title="Exportar historial de asistencia a Excel">
+            <svg class="icon" viewBox="0 0 24 24" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            Exportar Asistencias de ${division.name} (.xlsx)
+          </button>
+
           <!-- Lista de alumnas -->
           <div class="att-rows-scroll" id="attendanceRowsBox">
             ${students.length === 0 ? `
@@ -160,6 +168,30 @@ export function setupAttendanceModule(app) {
           }
           todayStr = getLocalDateStr(d);
           renderSession();
+        });
+
+        // Tocar fecha para abrir calendario personalizado
+        sessionBox.querySelector('#dateText')?.addEventListener('click', () => {
+          AppUI.showDatePicker({
+            initialDate: todayStr,
+            title: 'Fecha de Asistencia',
+            onSelect: (dateStr) => {
+              if (dateStr) {
+                if (dateStr > getLocalDateStr()) {
+                  app.showToast('No puedes registrar asistencia en el futuro', 'info');
+                  return;
+                }
+                todayStr = dateStr;
+                renderSession();
+              }
+            }
+          });
+        });
+
+        // Exportar a Excel (.xlsx)
+        sessionBox.querySelector('#btnExportAttendanceXlsx')?.addEventListener('click', () => {
+          if (navigator.vibrate) navigator.vibrate(10);
+          exportDivisionAttendanceToXlsx(activeDivisionId, app);
         });
 
         // Toggle marcar / desmarcar todas

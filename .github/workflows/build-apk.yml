@@ -29,6 +29,7 @@ jobs:
           mkdir -p android/app/src/main/assets/js
           cp index.html android/app/src/main/assets/
           cp manifest.json android/app/src/main/assets/
+          cp sw.js android/app/src/main/assets/ || true
           cp -r css/* android/app/src/main/assets/css/
           cp -r js/* android/app/src/main/assets/js/
 

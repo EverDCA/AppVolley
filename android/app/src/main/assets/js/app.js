@@ -2,6 +2,8 @@
 import { store } from './store.js';
 import { setupAttendanceModule } from './attendance.js';
 import { setupExercisesModule } from './exercises.js';
+import { AppUI } from './ui.js';
+import { exportDivisionAttendanceToXlsx } from './exportExcel.js';
 
 export function getInitials(name) {
   if (!name) return 'VT';
@@ -522,7 +524,7 @@ class AppVolley {
           <form id="divisionForm" class="modal-form">
             <div class="form-group">
               <label>Nombre de la Categoría *</label>
-              <input type="text" id="divName" placeholder="Ej: Sub 15, Sub 13, Alevín..." value="${existing?.name || ''}" required autofocus />
+              <input type="text" id="divName" placeholder="Ej: Sub 15, Sub 13, Alevín..." value="${existing?.name || ''}" required />
             </div>
 
             <div class="form-row">
@@ -550,16 +552,16 @@ class AppVolley {
     const modal = div.firstElementChild;
     document.body.appendChild(modal);
 
-    const closeModal = () => modal.remove();
-    modal.querySelector('#btnCloseDivModal')?.addEventListener('click', closeModal);
+    const closeModal = AppUI.bindModalClose(modal);
     modal.querySelector('#btnCancelDivModal')?.addEventListener('click', closeModal);
-    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
 
     modal.querySelector('#divisionForm')?.addEventListener('submit', (e) => {
       e.preventDefault();
-      const name = modal.querySelector('#divName').value;
-      const code = modal.querySelector('#divCode').value;
-      const ageRange = modal.querySelector('#divAgeRange').value;
+      const name = modal.querySelector('#divName').value.trim();
+      const code = modal.querySelector('#divCode').value.trim();
+      const ageRange = modal.querySelector('#divAgeRange').value.trim();
+
+      if (!name) return;
 
       if (isEdit) {
         store.updateDivision(divisionId, { name, code, ageRange });
@@ -591,6 +593,10 @@ class AppVolley {
             <button class="modal-close-btn" id="btnCloseOptModal">&times;</button>
           </div>
           <div style="display:flex; flex-direction:column; gap:8px;">
+            <button class="btn-ghost" id="btnExportExcelFromSub" style="width:100%; justify-content:flex-start; color:#4ade80;">
+              <svg class="icon" viewBox="0 0 24 24" width="16" height="16" stroke="#4ade80"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              Exportar Asistencias a Excel (.xlsx)
+            </button>
             <button class="btn-ghost" id="btnEditThisSub" style="width:100%; justify-content:flex-start;">
               Editar nombre y edad
             </button>
@@ -607,9 +613,12 @@ class AppVolley {
     const modal = div.firstElementChild;
     document.body.appendChild(modal);
 
-    const closeModal = () => modal.remove();
-    modal.querySelector('#btnCloseOptModal')?.addEventListener('click', closeModal);
-    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+    const closeModal = AppUI.bindModalClose(modal);
+
+    modal.querySelector('#btnExportExcelFromSub')?.addEventListener('click', () => {
+      closeModal();
+      exportDivisionAttendanceToXlsx(divisionId, this);
+    });
 
     modal.querySelector('#btnEditThisSub')?.addEventListener('click', () => {
       closeModal();
@@ -617,14 +626,20 @@ class AppVolley {
     });
 
     modal.querySelector('#btnDeleteThisSub')?.addEventListener('click', () => {
-      if (confirm(`¿Eliminar la categoría "${division.name}"?`)) {
-        store.deleteDivision(divisionId);
-        closeModal();
-        this.showToast('División eliminada', 'info');
-        this.activeTab = 'divisions';
-        this.updateNavActiveState('divisions');
-        this.renderDivisionsView();
-      }
+      AppUI.confirm({
+        title: '¿Eliminar Categoría?',
+        message: `¿Estás seguro de que deseas eliminar la categoría "${division.name}"? Sus datos y alumnas asociadas serán retirados.`,
+        confirmText: 'Eliminar División',
+        isDanger: true,
+        onConfirm: () => {
+          store.deleteDivision(divisionId);
+          closeModal();
+          this.showToast('División eliminada', 'info');
+          this.activeTab = 'divisions';
+          this.updateNavActiveState('divisions');
+          this.renderDivisionsView();
+        }
+      });
     });
   }
 
@@ -633,8 +648,25 @@ class AppVolley {
     const isEdit = !!existing;
     const divisions = store.getDivisions();
     const activeDivId = existing ? existing.divisionId : (preselectedDivisionId || this.currentDivisionId || divisions[0]?.id || '');
+    const activeDivision = store.getDivisionById(activeDivId) || divisions[0];
+    const activeDivName = activeDivision ? activeDivision.name : 'Seleccionar División';
 
     const positions = ['General', 'Armadora', 'Punta', 'Central', 'Opuesta', 'Líbero'];
+    const activePos = existing?.position || 'General';
+
+    const formatBirthDateLabel = (dateStr) => {
+      if (!dateStr) return '<span class="val-placeholder">Toca para seleccionar</span>';
+      try {
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+          const d = parseInt(parts[2], 10);
+          const mIdx = parseInt(parts[1], 10) - 1;
+          const mNames = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic'];
+          return `${d} de ${mNames[mIdx] || parts[1]} de ${parts[0]}`;
+        }
+      } catch (e) {}
+      return dateStr;
+    };
 
     const modalHtml = `
       <div class="modal-overlay" id="studentModal">
@@ -650,13 +682,17 @@ class AppVolley {
           <form id="studentForm" class="modal-form">
             <div class="form-group">
               <label>Nombre Completo *</label>
-              <input type="text" id="stuName" placeholder="Ej: María José Pérez" value="${existing?.name || ''}" required autofocus />
+              <input type="text" id="stuName" placeholder="Ej: María José Pérez" value="${existing?.name || ''}" required />
             </div>
 
             <div class="form-row">
               <div class="form-group half">
                 <label>Fecha de Nacimiento</label>
-                <input type="date" id="stuBirthDate" value="${existing?.birthDate || ''}" />
+                <div class="custom-date-trigger" id="btnTriggerBirthDate">
+                  <span class="val-text" id="txtBirthDateLabel">${formatBirthDateLabel(existing?.birthDate)}</span>
+                  <svg class="icon" viewBox="0 0 24 24" width="16" height="16"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                </div>
+                <input type="hidden" id="stuBirthDate" value="${existing?.birthDate || ''}" />
               </div>
               <div class="form-group half">
                 <label>Dorsal (#)</label>
@@ -666,16 +702,20 @@ class AppVolley {
 
             <div class="form-group">
               <label>División *</label>
-              <select id="stuDivision" required>
-                ${divisions.map(d => `<option value="${d.id}" ${d.id === activeDivId ? 'selected' : ''}>${d.name}</option>`).join('')}
-              </select>
+              <div class="custom-select-trigger" id="btnTriggerDivision">
+                <span class="val-text" id="txtDivisionLabel">${activeDivName}</span>
+                <svg class="icon" viewBox="0 0 24 24" width="16" height="16"><path d="M6 9l6 6 6-6"/></svg>
+              </div>
+              <input type="hidden" id="stuDivision" value="${activeDivId}" required />
             </div>
 
             <div class="form-group">
               <label>Posición</label>
-              <select id="stuPosition">
-                ${positions.map(p => `<option value="${p}" ${existing?.position === p ? 'selected' : ''}>${p}</option>`).join('')}
-              </select>
+              <div class="custom-select-trigger" id="btnTriggerPosition">
+                <span class="val-text" id="txtPositionLabel">${activePos}</span>
+                <svg class="icon" viewBox="0 0 24 24" width="16" height="16"><path d="M6 9l6 6 6-6"/></svg>
+              </div>
+              <input type="hidden" id="stuPosition" value="${activePos}" />
             </div>
 
             <div class="modal-footer">
@@ -695,25 +735,72 @@ class AppVolley {
     const modal = div.firstElementChild;
     document.body.appendChild(modal);
 
-    const closeModal = () => modal.remove();
-    modal.querySelector('#btnCloseStuModal')?.addEventListener('click', closeModal);
+    const closeModal = AppUI.bindModalClose(modal);
     modal.querySelector('#btnCancelStuModal')?.addEventListener('click', closeModal);
-    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+    // Eventos de selección personalizada (sin cuadros de diálogo nativos de Android)
+    modal.querySelector('#btnTriggerBirthDate')?.addEventListener('click', () => {
+      AppUI.showDatePicker({
+        initialDate: modal.querySelector('#stuBirthDate').value,
+        title: 'Fecha de Nacimiento',
+        onSelect: (dateStr) => {
+          modal.querySelector('#stuBirthDate').value = dateStr;
+          const labelEl = modal.querySelector('#txtBirthDateLabel');
+          if (labelEl) labelEl.innerHTML = formatBirthDateLabel(dateStr);
+        }
+      });
+    });
+
+    modal.querySelector('#btnTriggerDivision')?.addEventListener('click', () => {
+      const currentVal = modal.querySelector('#stuDivision').value;
+      AppUI.showSelectSheet({
+        title: 'Seleccionar División',
+        subtitle: 'Categoría de la jugadora',
+        options: divisions.map(d => ({ value: d.id, label: d.name })),
+        currentValue: currentVal,
+        onSelect: (val, label) => {
+          modal.querySelector('#stuDivision').value = val;
+          const labelEl = modal.querySelector('#txtDivisionLabel');
+          if (labelEl) labelEl.textContent = label;
+        }
+      });
+    });
+
+    modal.querySelector('#btnTriggerPosition')?.addEventListener('click', () => {
+      const currentVal = modal.querySelector('#stuPosition').value;
+      AppUI.showSelectSheet({
+        title: 'Seleccionar Posición',
+        subtitle: 'Posición táctica de la jugadora',
+        options: positions,
+        currentValue: currentVal,
+        onSelect: (val) => {
+          modal.querySelector('#stuPosition').value = val;
+          const labelEl = modal.querySelector('#txtPositionLabel');
+          if (labelEl) labelEl.textContent = val;
+        }
+      });
+    });
 
     modal.querySelector('#btnDeleteStudent')?.addEventListener('click', () => {
-      if (confirm(`¿Eliminar a "${existing.name}"?`)) {
-        store.deleteStudent(studentId);
-        closeModal();
-        this.showToast('Alumna eliminada', 'info');
-        this.renderActiveTab();
-      }
+      AppUI.confirm({
+        title: '¿Eliminar Alumna?',
+        message: `¿Estás seguro de que deseas eliminar a "${existing.name}"? Esta acción no se puede deshacer.`,
+        confirmText: 'Eliminar',
+        isDanger: true,
+        onConfirm: () => {
+          store.deleteStudent(studentId);
+          closeModal();
+          this.showToast('Alumna eliminada', 'info');
+          this.renderActiveTab();
+        }
+      });
     });
 
     modal.querySelector('#studentForm')?.addEventListener('submit', (e) => {
       e.preventDefault();
       const name = modal.querySelector('#stuName').value.trim();
       const birthDate = modal.querySelector('#stuBirthDate').value;
-      const jerseyNumber = modal.querySelector('#stuJersey').value;
+      const jerseyNumber = modal.querySelector('#stuJersey').value.trim();
       const divisionId = modal.querySelector('#stuDivision').value;
       const position = modal.querySelector('#stuPosition').value;
 
@@ -727,7 +814,7 @@ class AppVolley {
         this.showToast('Alumna actualizada ✓', 'success');
       } else {
         store.addStudent({ name, birthDate, jerseyNumber, divisionId, position });
-        // Preserve division context after adding
+        // Preservar la categoría tras agregar
         this.currentDivisionId = divisionId;
         store.setActiveDivisionId(divisionId);
         this.showToast(`${name} agregada ✓`, 'success');
@@ -898,8 +985,7 @@ class AppVolley {
           div.innerHTML = modalHtml;
           const modal = div.firstElementChild;
           document.body.appendChild(modal);
-          modal.querySelector('#btnCloseApkModal')?.addEventListener('click', () => modal.remove());
-          modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+          AppUI.bindModalClose(modal);
         }, 1200);
 
       } catch (err) {
@@ -908,7 +994,6 @@ class AppVolley {
         this.showToast('No se pudo verificar la actualización', 'info');
       }
     });
-
 
     // Exportar Respaldo
     this.mainContainer.querySelector('#btnExportBackup')?.addEventListener('click', () => {
@@ -942,7 +1027,10 @@ class AppVolley {
           this.showToast('¡Copia de seguridad restaurada!', 'success');
           this.renderSettingsView();
         } catch (err) {
-          alert('El archivo seleccionado no tiene un formato de respaldo válido.');
+          AppUI.alert({
+            title: 'Formato no válido',
+            message: 'El archivo seleccionado no tiene un formato de respaldo JSON válido.'
+          });
         }
       };
       reader.readAsText(file);
@@ -950,11 +1038,17 @@ class AppVolley {
 
     // Restablecer valores de prueba
     this.mainContainer.querySelector('#btnResetToDefaults')?.addEventListener('click', () => {
-      if (confirm('¿Restablecer todas las alumnas y divisiones a los datos iniciales del Excel?')) {
-        store.resetToExcelDefaults();
-        this.showToast('Datos restablecidos al estado original', 'info');
-        this.renderSettingsView();
-      }
+      AppUI.confirm({
+        title: '¿Restablecer Datos Iniciales?',
+        message: '¿Estás seguro de que deseas restablecer las alumnas y categorías a los datos originales del Excel? Se sobrescribirán los datos locales actuales.',
+        confirmText: 'Restablecer',
+        isDanger: true,
+        onConfirm: () => {
+          store.resetToExcelDefaults();
+          this.showToast('Datos restablecidos al estado original', 'info');
+          this.renderSettingsView();
+        }
+      });
     });
   }
 
