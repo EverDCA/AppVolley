@@ -535,7 +535,7 @@ class AppVolley {
             </div>
 
             <div class="modal-footer">
-              <button type="button" class="btn-ghost" id="btnCancelDivModal">Cancelar</button>
+              <button type="button" class="btn-ghost" id="btnCancelDivModal" data-modal-close>Cancelar</button>
               <button type="submit" class="btn-primary">${isEdit ? 'Guardar' : 'Crear División'}</button>
             </div>
           </form>
@@ -598,6 +598,9 @@ class AppVolley {
             </button>
             <button class="btn-ghost" id="btnDeleteThisSub" style="width:100%; justify-content:flex-start; color:var(--wine);">
               Eliminar esta división
+            </button>
+            <button type="button" class="btn-ghost" id="btnCancelDivOptions" data-modal-close style="width:100%; margin-top:4px;">
+              Cancelar
             </button>
           </div>
         </div>
@@ -718,7 +721,7 @@ class AppVolley {
               ${isEdit ? `
                 <button type="button" class="btn-ghost" id="btnDeleteStudent" style="color:var(--wine); margin-right:auto;">Eliminar</button>
               ` : ''}
-              <button type="button" class="btn-ghost" id="btnCancelStuModal">Cancelar</button>
+              <button type="button" class="btn-ghost" id="btnCancelStuModal" data-modal-close>Cancelar</button>
               <button type="submit" class="btn-primary">${isEdit ? 'Guardar' : 'Crear Alumna'}</button>
             </div>
           </form>

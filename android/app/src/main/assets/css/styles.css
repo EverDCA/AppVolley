@@ -910,15 +910,20 @@ svg.icon {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100vw;
-  height: 100vh;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
   background: rgba(0, 0, 0, 0.75);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-  z-index: 100;
+  z-index: 1000;
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  pointer-events: auto;
 }
 
 .modal-sheet {
@@ -1271,11 +1276,11 @@ svg.icon {
 /* Transiciones suaves al cerrar modales */
 .modal-overlay.closing {
   opacity: 0;
-  pointer-events: none;
+  pointer-events: auto !important;
 }
 .modal-overlay.closing .modal-sheet {
   transform: translateY(100%);
-  transition: transform 0.15s ease-out;
+  transition: transform 0.18s ease-out;
 }
 
 /* ==========================================================================
@@ -1332,7 +1337,7 @@ svg.icon {
    SELECT SHEET (Bottom sheet con lista y radio buttons elegantes)
    ========================================================================== */
 .select-sheet-overlay {
-  z-index: 105;
+  z-index: 1050;
 }
 
 .sheet-options-list {

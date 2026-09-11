@@ -54,43 +54,112 @@ export const AppUI = {
     }, 1000);
   },
 
-  // Vincula el cierre de un modal en un solo toque (touch/pointer/click)
+  // Vincula un disparador seguro de toque/clic sin fugas ni clics fantasma
+  attachSafeTrigger(element, handler) {
+    if (!element) return;
+    let handled = false;
+
+    element.addEventListener('touchend', (e) => {
+      handled = true;
+      e.preventDefault();
+      e.stopPropagation();
+      handler(e);
+      setTimeout(() => { handled = false; }, 350);
+    }, { passive: false });
+
+    element.addEventListener('click', (e) => {
+      if (handled) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      handler(e);
+    });
+  },
+
+  // Vincula el cierre de un modal de forma 100% segura contra clics fantasma y toques accidentales
   bindModalClose(modal, onClose) {
     let isClosing = false;
+
     const doClose = (e) => {
       if (isClosing) return;
       isClosing = true;
+
       if (e) {
-        e.preventDefault();
-        e.stopPropagation();
+        if (typeof e.preventDefault === 'function') e.preventDefault();
+        if (typeof e.stopPropagation === 'function') e.stopPropagation();
       }
+
       // Ocultar teclado virtual desenfocando el elemento activo
       if (document.activeElement && typeof document.activeElement.blur === 'function') {
         document.activeElement.blur();
       }
+
       modal.classList.add('closing');
+      // Mantener pointer-events: auto como escudo para que nada atraviese hacia el fondo durante la animación
+      modal.style.pointerEvents = 'auto';
+
       setTimeout(() => {
         modal.remove();
         if (onClose) onClose();
-      }, 150);
+      }, 180);
     };
 
-    // Botón cerrar (X)
-    const closeBtns = modal.querySelectorAll('.modal-close-btn, [data-modal-close]');
-    closeBtns.forEach(btn => {
-      ['pointerdown', 'click'].forEach(evt => {
-        btn.addEventListener(evt, doClose, { passive: false });
-      });
+    // Bloqueador absoluto: absorbe cualquier evento pendiente mientras se cierra el modal
+    const blockResidualEvents = (e) => {
+      if (isClosing) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
+    };
+    ['click', 'pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown', 'mouseup'].forEach(evt => {
+      modal.addEventListener(evt, blockResidualEvents, { capture: true, passive: false });
     });
 
-    // Clic o toque en el fondo oscuro (overlay)
-    ['pointerdown', 'click'].forEach(evt => {
-      modal.addEventListener(evt, (e) => {
-        if (e.target === modal) {
-          doClose(e);
-        }
-      }, { passive: false });
+    // Botones de cerrar (X, cancelar y [data-modal-close])
+    const closeBtns = modal.querySelectorAll('.modal-close-btn, [data-modal-close]');
+    closeBtns.forEach(btn => {
+      this.attachSafeTrigger(btn, doClose);
     });
+
+    // Clic o toque en el fondo oscuro (overlay) fuera de la tarjeta
+    let touchStartedOnCard = false;
+    modal.addEventListener('touchstart', (e) => {
+      touchStartedOnCard = !!e.target.closest('.modal-sheet, .custom-confirm-card');
+    }, { passive: true });
+
+    modal.addEventListener('touchend', (e) => {
+      if (touchStartedOnCard) {
+        touchStartedOnCard = false;
+        return;
+      }
+      if (e.target === modal) {
+        e.preventDefault();
+        e.stopPropagation();
+        doClose(e);
+      }
+    }, { passive: false });
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        e.preventDefault();
+        e.stopPropagation();
+        doClose(e);
+      }
+    });
+
+    // Evitar que toques dentro de la tarjeta se propaguen al overlay
+    const sheet = modal.querySelector('.modal-sheet, .custom-confirm-card');
+    if (sheet) {
+      sheet.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
+      sheet.addEventListener('touchend', (e) => {
+        e.stopPropagation();
+      });
+    }
 
     return doClose;
   },
@@ -139,16 +208,12 @@ export const AppUI = {
     const closeModal = this.bindModalClose(modal);
 
     modal.querySelectorAll('.sheet-option-item').forEach(item => {
-      ['pointerdown', 'click'].forEach(evt => {
-        item.addEventListener(evt, (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          if (navigator.vibrate) navigator.vibrate(10);
-          const val = item.dataset.value;
-          const label = item.querySelector('.opt-label')?.textContent || val;
-          closeModal();
-          if (onSelect) onSelect(val, label);
-        }, { passive: false });
+      this.attachSafeTrigger(item, (e) => {
+        if (navigator.vibrate) navigator.vibrate(10);
+        const val = item.dataset.value;
+        const label = item.querySelector('.opt-label')?.textContent || val;
+        closeModal(e);
+        if (onSelect) onSelect(val, label);
       });
     });
   },
@@ -369,7 +434,7 @@ export const AppUI = {
     document.querySelectorAll('#customConfirmModal').forEach(m => m.remove());
 
     const html = `
-      <div class="modal-overlay" id="customConfirmModal" style="align-items:center; z-index:110;">
+      <div class="modal-overlay" id="customConfirmModal" style="align-items:center; z-index:1100;">
         <div class="custom-confirm-card">
           <div class="confirm-icon-box ${isDanger ? 'danger' : 'info'}">
             ${isDanger
@@ -380,7 +445,7 @@ export const AppUI = {
           <div class="confirm-title">${title}</div>
           <div class="confirm-message">${message}</div>
           <div class="confirm-actions">
-            <button type="button" class="btn-ghost" id="btnConfirmCancel">${cancelText}</button>
+            <button type="button" class="btn-ghost" id="btnConfirmCancel" data-modal-close>${cancelText}</button>
             <button type="button" class="${isDanger ? 'btn-danger' : 'btn-primary'}" id="btnConfirmOk">${confirmText}</button>
           </div>
         </div>
@@ -394,12 +459,14 @@ export const AppUI = {
 
     const closeModal = this.bindModalClose(modal);
 
-    modal.querySelector('#btnConfirmCancel')?.addEventListener('click', closeModal);
-    modal.querySelector('#btnConfirmOk')?.addEventListener('click', () => {
-      if (navigator.vibrate) navigator.vibrate(12);
-      closeModal();
-      if (onConfirm) onConfirm();
-    });
+    const btnOk = modal.querySelector('#btnConfirmOk');
+    if (btnOk) {
+      this.attachSafeTrigger(btnOk, (e) => {
+        if (navigator.vibrate) navigator.vibrate(12);
+        closeModal(e);
+        if (onConfirm) onConfirm();
+      });
+    }
   },
 
   // =========================================================================
@@ -409,7 +476,7 @@ export const AppUI = {
     document.querySelectorAll('#customAlertModal').forEach(m => m.remove());
 
     const html = `
-      <div class="modal-overlay" id="customAlertModal" style="align-items:center; z-index:110;">
+      <div class="modal-overlay" id="customAlertModal" style="align-items:center; z-index:1100;">
         <div class="custom-confirm-card">
           <div class="confirm-title" style="margin-top:0;">${title}</div>
           <div class="confirm-message">${message}</div>
@@ -426,9 +493,13 @@ export const AppUI = {
     document.body.appendChild(modal);
 
     const closeModal = this.bindModalClose(modal);
-    modal.querySelector('#btnAlertOk')?.addEventListener('click', () => {
-      closeModal();
-      if (onOk) onOk();
-    });
+
+    const btnOk = modal.querySelector('#btnAlertOk');
+    if (btnOk) {
+      this.attachSafeTrigger(btnOk, (e) => {
+        closeModal(e);
+        if (onOk) onOk();
+      });
+    }
   }
 };

@@ -1,6 +1,7 @@
 // Módulo de Planes y Calificación — VolleyTrack
 import { store } from './store.js';
 import { getInitials } from './app.js';
+import { AppUI } from './ui.js';
 
 const FUNDAMENTALS = [
   { id: 'saque',      name: 'Saque' },
@@ -79,10 +80,10 @@ export function setupExercisesModule(app) {
 
         const getTopPlayer = () => {
           let topName = null;
-          let topScore = -Infinity;
+          let topScore = 0;
           students.forEach(st => {
             const v = getScore(st.id);
-            if (typeof v === 'number' && v > topScore) { topScore = v; topName = st.name; }
+            if (typeof v === 'number' && v > 0 && v > topScore) { topScore = v; topName = st.name; }
           });
           return { topName, topScore };
         };
@@ -121,8 +122,8 @@ export function setupExercisesModule(app) {
                       <div class="pname">${s.name}</div>
                     </div>
                     <div class="stepper">
-                      <button class="btn-step-minus" data-student="${s.id}" ${hasScore && score <= 1 ? 'disabled' : ''}>−</button>
-                      <div class="val" id="val-${s.id}" style="${!hasScore ? 'color:var(--text-faint);' : ''}">
+                      <button class="btn-step-minus" data-student="${s.id}" ${hasScore && score <= 0 ? 'disabled' : ''}>−</button>
+                      <div class="val" id="val-${s.id}" data-student="${s.id}" style="${!hasScore ? 'color:var(--text-faint);' : ''} cursor:pointer;" title="Toca para elegir puntaje">
                         ${hasScore ? score : '—'}
                       </div>
                       <button class="btn-step-plus" data-student="${s.id}" ${hasScore && score >= 10 ? 'disabled' : ''}>+</button>
@@ -173,7 +174,7 @@ export function setupExercisesModule(app) {
               valEl.style.color = hasScore ? '' : 'var(--text-faint)';
             }
             if (stepperEl) {
-              stepperEl.querySelector('.btn-step-minus').disabled = hasScore && score <= 1;
+              stepperEl.querySelector('.btn-step-minus').disabled = hasScore && score <= 0;
               stepperEl.querySelector('.btn-step-plus').disabled  = hasScore && score >= 10;
             }
           });
@@ -181,11 +182,60 @@ export function setupExercisesModule(app) {
           updateHonorCard();
         });
 
-        // --- Stepper +/- (actualización puntual del DOM) ---
+        // --- Stepper +/- o selector directo al tocar el valor ---
         sessionBox.querySelector('#rateRowsBox')?.addEventListener('click', (e) => {
           const minus = e.target.closest('.btn-step-minus');
           const plus  = e.target.closest('.btn-step-plus');
-          const btn   = minus || plus;
+          const valElTarget = e.target.closest('.val[data-student]');
+
+          // Si toca directamente el número: selector táctil rápido de 0 a 10
+          if (valElTarget) {
+            const studentId = valElTarget.dataset.student;
+            const student = students.find(x => x.id === studentId);
+            const currentScore = evaluations[studentId]?.scores?.[activeFundId];
+
+            AppUI.showSelectSheet({
+              title: `Puntaje (${activeFund?.name || 'Fundamento'})`,
+              subtitle: student?.name || 'Selecciona puntuación',
+              options: [
+                { value: 0, label: '0 pts — Sin puntuación / Fallo' },
+                { value: 1, label: '1 pt' },
+                { value: 2, label: '2 pts' },
+                { value: 3, label: '3 pts' },
+                { value: 4, label: '4 pts' },
+                { value: 5, label: '5 pts' },
+                { value: 6, label: '6 pts' },
+                { value: 7, label: '7 pts' },
+                { value: 8, label: '8 pts' },
+                { value: 9, label: '9 pts' },
+                { value: 10, label: '10 pts — Excelente' }
+              ],
+              currentValue: currentScore !== undefined ? currentScore : '',
+              onSelect: (val) => {
+                const scoreNum = parseInt(val, 10);
+                if (!evaluations[studentId]) evaluations[studentId] = { scores: {} };
+                if (!evaluations[studentId].scores) evaluations[studentId].scores = {};
+                evaluations[studentId].scores[activeFundId] = scoreNum;
+
+                store.saveExercisePlan({ id: todayPlan.id, evaluations });
+                if (navigator.vibrate) navigator.vibrate(8);
+
+                const vEl = sessionBox.querySelector(`#val-${studentId}`);
+                if (vEl) { vEl.textContent = scoreNum; vEl.style.color = ''; }
+
+                const stepperEl = sessionBox.querySelector(`.rate-row[data-id="${studentId}"] .stepper`);
+                if (stepperEl) {
+                  stepperEl.querySelector('.btn-step-minus').disabled = scoreNum <= 0;
+                  stepperEl.querySelector('.btn-step-plus').disabled  = scoreNum >= 10;
+                }
+
+                updateHonorCard();
+              }
+            });
+            return;
+          }
+
+          const btn = minus || plus;
           if (!btn) return;
 
           const studentId = btn.dataset.student;
@@ -195,8 +245,12 @@ export function setupExercisesModule(app) {
           if (!evaluations[studentId].scores) evaluations[studentId].scores = {};
 
           let current = evaluations[studentId].scores[activeFundId];
-          if (current === undefined) current = delta > 0 ? 4 : 6;
-          current = Math.max(1, Math.min(10, current + delta));
+          if (current === undefined) {
+            // Si no estaba calificado: + arranca en 1, - arranca en 0
+            current = delta > 0 ? 1 : 0;
+          } else {
+            current = Math.max(0, Math.min(10, current + delta));
+          }
           evaluations[studentId].scores[activeFundId] = current;
 
           // Guardar
@@ -209,7 +263,7 @@ export function setupExercisesModule(app) {
 
           const stepperEl = sessionBox.querySelector(`.rate-row[data-id="${studentId}"] .stepper`);
           if (stepperEl) {
-            stepperEl.querySelector('.btn-step-minus').disabled = current <= 1;
+            stepperEl.querySelector('.btn-step-minus').disabled = current <= 0;
             stepperEl.querySelector('.btn-step-plus').disabled  = current >= 10;
           }
 
@@ -222,7 +276,7 @@ export function setupExercisesModule(app) {
           const titleEl = sessionBox.querySelector('#honorTitle');
           const textEl  = sessionBox.querySelector('#honorText');
           if (titleEl) titleEl.textContent = `Mejor en ${f?.name || ''}`;
-          if (textEl)  textEl.textContent  = s > -Infinity && n ? `${n} · ${s}/10` : 'Sin calificar aún';
+          if (textEl)  textEl.textContent  = s > 0 && n ? `${n} · ${s}/10` : 'Sin calificar aún';
         };
       };
 
