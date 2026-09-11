@@ -1,5 +1,5 @@
 // Service Worker con política Network-First para asegurar que siempre se carguen los últimos cambios
-const CACHE_NAME = 'volleytrack-v4';
+const CACHE_NAME = 'volleytrack-v5';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

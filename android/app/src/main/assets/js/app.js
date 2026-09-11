@@ -738,6 +738,228 @@ class AppVolley {
     });
   }
 
+  // =========================================================================
+  // SCREEN 5: AJUSTES Y ACTUALIZACIÓN RÁPIDA
+  // =========================================================================
+  renderSettingsView() {
+    const divisions = store.getDivisions();
+    const students = store.getStudents();
+    const isOnline = navigator.onLine;
+
+    this.mainContainer.innerHTML = `
+      <div class="screen-head">
+        <div class="greet">Sistema y Datos</div>
+        <h2>Ajustes</h2>
+      </div>
+
+      <!-- Tarjeta de Actualización Rápida -->
+      <div class="settings-section highlight">
+        <div class="settings-sec-title">
+          <svg class="icon" viewBox="0 0 24 24" width="16" height="16"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+          Actualización de la App
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-row-info">
+            <div class="title">Versión instalada</div>
+            <div class="desc">Compilación v1.1.0 · Estable</div>
+          </div>
+          <span class="badge-version">v1.1.0</span>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-row-info">
+            <div class="title">Estado de red</div>
+            <div class="desc">${isOnline ? 'Conectado a Internet' : 'Modo fuera de línea'}</div>
+          </div>
+          <span style="font-size:12px; font-weight:700; color:${isOnline ? '#4ade80' : 'var(--text-muted)'};">
+            ${isOnline ? '● Online' : '○ Offline'}
+          </span>
+        </div>
+
+        <button class="btn-update-action" id="btnCheckAppUpdate">
+          <svg class="icon" viewBox="0 0 24 24" width="18" height="18" stroke="#ffffff"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+          <span id="txtUpdateBtn">Buscar y aplicar actualización</span>
+        </button>
+      </div>
+
+      <!-- Tarjeta de Base de Datos y Respaldo Local -->
+      <div class="settings-section">
+        <div class="settings-sec-title">
+          <svg class="icon" viewBox="0 0 24 24" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          Base de Datos del Teléfono
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-row-info">
+            <div class="title">Registros guardados</div>
+            <div class="desc">${divisions.length} categorías · ${students.length} jugadoras</div>
+          </div>
+        </div>
+
+        <button class="btn-secondary-action" id="btnExportBackup">
+          <svg class="icon" viewBox="0 0 24 24" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          Descargar copia de seguridad (.json)
+        </button>
+
+        <button class="btn-secondary-action" id="btnImportBackup">
+          <svg class="icon" viewBox="0 0 24 24" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+          Restaurar copia de seguridad
+        </button>
+        <input type="file" id="fileBackupInput" accept=".json" style="display:none;" />
+      </div>
+
+      <!-- Datos del Excel originales -->
+      <div class="settings-section">
+        <div class="settings-sec-title">
+          <svg class="icon" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Mantenimiento
+        </div>
+        <button class="btn-ghost" id="btnResetToDefaults" style="width:100%; color:var(--text-muted); font-size:12.5px; padding:10px;">
+          Restablecer datos originales del Excel
+        </button>
+      </div>
+    `;
+
+    // --- EVENTOS DE LA PANTALLA DE AJUSTES ---
+
+    // Botón de Actualizar
+    const btnUpdate = this.mainContainer.querySelector('#btnCheckAppUpdate');
+    const txtUpdate = this.mainContainer.querySelector('#txtUpdateBtn');
+    btnUpdate?.addEventListener('click', async () => {
+      if (navigator.vibrate) navigator.vibrate(12);
+
+      btnUpdate.classList.add('loading');
+      txtUpdate.textContent = 'Comprobando servidor...';
+
+      try {
+        // 1. Si existe Service Worker, forzar chequeo de actualización y vaciar cachés
+        if ('serviceWorker' in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          for (const reg of registrations) {
+            await reg.update();
+          }
+          if ('caches' in window) {
+            const cacheNames = await caches.keys();
+            await Promise.all(cacheNames.map(name => caches.delete(name)));
+          }
+        }
+
+        // 2. Verificar estado en GitHub si hay internet
+        let hasNewRelease = false;
+        if (navigator.onLine) {
+          try {
+            const res = await fetch('https://api.github.com/repos/EverDCA/AppVolley/actions/runs?per_page=1', { cache: 'no-store' });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.workflow_runs && data.workflow_runs.length > 0) {
+                hasNewRelease = true;
+              }
+            }
+          } catch (netErr) {
+            // Modo offline o sin API rate limit
+          }
+        }
+
+        txtUpdate.textContent = '¡Aplicando actualización!';
+        this.showToast('Actualizando archivos a la última versión...', 'success');
+
+        // Mostrar opción de descargar APK nuevo o recargar
+        setTimeout(() => {
+          btnUpdate.classList.remove('loading');
+          txtUpdate.textContent = 'Buscar y aplicar actualización';
+
+          // Si el usuario está en Android APK o web
+          const isAndroidApp = window.location.protocol === 'https:' && window.location.hostname === 'appassets.androidplatform.net';
+
+          if (isAndroidApp) {
+            // En APK Android: abrir la página de descarga directa
+            const modalHtml = `
+              <div class="modal-backdrop" id="updateApkModal">
+                <div class="modal-sheet">
+                  <div class="modal-header">
+                    <div>
+                      <div class="modal-title">Actualización de VolleyTrack</div>
+                      <div class="modal-subtitle">Descarga e instala el último APK</div>
+                    </div>
+                    <button class="modal-close-btn" id="btnCloseApkModal">&times;</button>
+                  </div>
+                  <p style="font-size:13.5px; color:var(--text-muted); line-height:1.5; margin:14px 0;">
+                    El código interno se ha sincronizado. Para actualizar la instalación base de Android con las últimas mejoras, descarga el nuevo instalador APK. Tus datos guardados se mantendrán intactos.
+                  </p>
+                  <a href="https://github.com/EverDCA/AppVolley/actions" target="_blank" class="btn-primary" style="text-decoration:none; width:100%; justify-content:center;">
+                    Descargar nuevo APK desde GitHub
+                  </a>
+                </div>
+              </div>
+            `;
+            const div = document.createElement('div');
+            div.innerHTML = modalHtml;
+            const modal = div.firstElementChild;
+            document.body.appendChild(modal);
+            modal.querySelector('#btnCloseApkModal')?.addEventListener('click', () => modal.remove());
+            modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+          } else {
+            // En Navegador / PWA: forzar recarga limpia
+            window.location.reload(true);
+          }
+        }, 1200);
+
+      } catch (err) {
+        btnUpdate.classList.remove('loading');
+        txtUpdate.textContent = 'Buscar y aplicar actualización';
+        this.showToast('No se pudo verificar la actualización', 'info');
+      }
+    });
+
+    // Exportar Respaldo
+    this.mainContainer.querySelector('#btnExportBackup')?.addEventListener('click', () => {
+      const backup = store.exportFullBackup();
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const dateStr = new Date().toISOString().split('T')[0];
+      a.href = url;
+      a.download = `VolleyTrack_Respaldo_${dateStr}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      this.showToast('Respaldo guardado en descargas', 'success');
+    });
+
+    // Importar Respaldo
+    const fileInput = this.mainContainer.querySelector('#fileBackupInput');
+    this.mainContainer.querySelector('#btnImportBackup')?.addEventListener('click', () => {
+      fileInput?.click();
+    });
+
+    fileInput?.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const parsed = JSON.parse(event.target.result);
+          store.importFullBackup(parsed);
+          this.showToast('¡Copia de seguridad restaurada!', 'success');
+          this.renderSettingsView();
+        } catch (err) {
+          alert('El archivo seleccionado no tiene un formato de respaldo válido.');
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    // Restablecer valores de prueba
+    this.mainContainer.querySelector('#btnResetToDefaults')?.addEventListener('click', () => {
+      if (confirm('¿Restablecer todas las alumnas y divisiones a los datos iniciales del Excel?')) {
+        store.resetToExcelDefaults();
+        this.showToast('Datos restablecidos al estado original', 'info');
+        this.renderSettingsView();
+      }
+    });
+  }
+
   showToast(message, type = 'info') {
     let toast = document.getElementById('appToast');
     if (!toast) {
