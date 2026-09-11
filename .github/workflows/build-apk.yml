@@ -1,13 +1,16 @@
-name: Compilar APK de Android (VolleyTrack)
+name: Compilar y Publicar APK (VolleyTrack)
 
 on:
   push:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: write   # necesario para crear y publicar releases
+
 jobs:
   build:
-    name: Generar APK de Android
+    name: Generar y Publicar APK
     runs-on: ubuntu-latest
 
     steps:
@@ -43,16 +46,52 @@ jobs:
           cd android
           gradle assembleDebug --no-daemon --stacktrace
 
-      - name: Preparar APK para descarga
+      - name: Preparar APK para publicar
         run: |
           mkdir -p apk-output
           cp android/app/build/outputs/apk/debug/*.apk apk-output/VolleyTrack.apk
           ls -la apk-output/
 
-      - name: Subir APK generado como Artefacto descargable
+      - name: Obtener fecha y hash del commit
+        id: meta
+        run: |
+          echo "date=$(date +'%Y-%m-%d')"    >> $GITHUB_OUTPUT
+          echo "sha=${GITHUB_SHA::7}"         >> $GITHUB_OUTPUT
+
+      - name: Eliminar release 'latest' anterior (si existe)
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publicar Release con APK descargable
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: "VolleyTrack — última versión (${{ steps.meta.outputs.date }})"
+          body: |
+            ## VolleyTrack APK — Compilación automática
+
+            **Commit:** `${{ steps.meta.outputs.sha }}`  
+            **Fecha:** ${{ steps.meta.outputs.date }}
+
+            ### Cómo instalar
+            1. Descarga el archivo `VolleyTrack.apk` debajo
+            2. Ábrelo desde tu Android (activa "Instalar aplicaciones desconocidas" si se solicita)
+            3. Tus datos y asistencias se conservan automáticamente
+
+            > Esta versión se genera de forma continua y directa con cada actualización del proyecto.
+          files: apk-output/VolleyTrack.apk
+          overwrite: true
+          make_latest: true
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Subir APK también como Artefacto de respaldo
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: VolleyTrack-APK
           path: apk-output/VolleyTrack.apk
           retention-days: 30
-

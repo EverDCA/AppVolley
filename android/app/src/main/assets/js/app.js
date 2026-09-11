@@ -781,6 +781,11 @@ class AppVolley {
           <svg class="icon" viewBox="0 0 24 24" width="18" height="18" stroke="#ffffff"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
           <span id="txtUpdateBtn">Buscar y aplicar actualización</span>
         </button>
+
+        <a href="https://github.com/EverDCA/AppVolley/releases/latest/download/VolleyTrack.apk" target="_blank" class="btn-secondary-action" id="btnDownloadApkDirect" style="text-decoration:none; display:flex; align-items:center; justify-content:center; gap:8px; margin-top:10px; font-weight:600; font-size:13px;">
+          <svg class="icon" viewBox="0 0 24 24" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          Descargar APK directamente (.apk)
+        </a>
       </div>
 
       <!-- Tarjeta de Base de Datos y Respaldo Local -->
@@ -849,10 +854,10 @@ class AppVolley {
         let hasNewRelease = false;
         if (navigator.onLine) {
           try {
-            const res = await fetch('https://api.github.com/repos/EverDCA/AppVolley/actions/runs?per_page=1', { cache: 'no-store' });
+            const res = await fetch('https://api.github.com/repos/EverDCA/AppVolley/releases/latest', { cache: 'no-store' });
             if (res.ok) {
               const data = await res.json();
-              if (data.workflow_runs && data.workflow_runs.length > 0) {
+              if (data.assets && data.assets.length > 0) {
                 hasNewRelease = true;
               }
             }
@@ -869,41 +874,32 @@ class AppVolley {
           btnUpdate.classList.remove('loading');
           txtUpdate.textContent = 'Buscar y aplicar actualización';
 
-          // Si el usuario está en Android APK o web
-          const isAndroidApp = window.location.protocol === 'https:' && window.location.hostname === 'appassets.androidplatform.net';
-
-          if (isAndroidApp) {
-            // En APK Android: mostrar modal para descargar nuevo APK
-            const modalHtml = `
-              <div class="modal-overlay" id="updateApkModal">
-                <div class="modal-sheet">
-                  <div class="modal-header">
-                    <div>
-                      <div class="modal-title">Actualización disponible</div>
-                      <div class="modal-subtitle">Descarga e instala el último APK</div>
-                    </div>
-                    <button class="modal-close-btn" id="btnCloseApkModal">&times;</button>
+          const modalHtml = `
+            <div class="modal-overlay" id="updateApkModal">
+              <div class="modal-sheet">
+                <div class="modal-header">
+                  <div>
+                    <div class="modal-title">Actualización lista</div>
+                    <div class="modal-subtitle">Descarga directa del APK</div>
                   </div>
-                  <p style="font-size:13.5px; color:var(--text-muted); line-height:1.6; margin:14px 0;">
-                    El contenido interno ya se actualizó. Para aplicar mejoras al instalador base de Android, descarga el nuevo APK. Tus datos guardados se conservan al reinstalar.
-                  </p>
-                  <a href="https://github.com/EverDCA/AppVolley/actions" target="_blank" class="btn-update-action" style="text-decoration:none; display:flex; align-items:center; justify-content:center; gap:8px;">
-                    <svg class="icon" viewBox="0 0 24 24" width="16" height="16" stroke="#fff"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-                    Descargar nuevo APK
-                  </a>
+                  <button class="modal-close-btn" id="btnCloseApkModal">&times;</button>
                 </div>
+                <p style="font-size:13.5px; color:var(--text-muted); line-height:1.6; margin:14px 0;">
+                  Los datos locales y cachés se han sincronizado. Haz clic en el botón inferior para descargar e instalar <strong>VolleyTrack.apk</strong> directamente en tu dispositivo Android.
+                </p>
+                <a href="https://github.com/EverDCA/AppVolley/releases/latest/download/VolleyTrack.apk" target="_blank" class="btn-update-action" style="text-decoration:none; display:flex; align-items:center; justify-content:center; gap:8px;">
+                  <svg class="icon" viewBox="0 0 24 24" width="16" height="16" stroke="#fff"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                  Descargar VolleyTrack.apk
+                </a>
               </div>
-            `;
-            const div = document.createElement('div');
-            div.innerHTML = modalHtml;
-            const modal = div.firstElementChild;
-            document.body.appendChild(modal);
-            modal.querySelector('#btnCloseApkModal')?.addEventListener('click', () => modal.remove());
-            modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
-          } else {
-            // En Navegador / PWA: forzar recarga limpia
-            window.location.reload(true);
-          }
+            </div>
+          `;
+          const div = document.createElement('div');
+          div.innerHTML = modalHtml;
+          const modal = div.firstElementChild;
+          document.body.appendChild(modal);
+          modal.querySelector('#btnCloseApkModal')?.addEventListener('click', () => modal.remove());
+          modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
         }, 1200);
 
       } catch (err) {
@@ -912,6 +908,7 @@ class AppVolley {
         this.showToast('No se pudo verificar la actualización', 'info');
       }
     });
+
 
     // Exportar Respaldo
     this.mainContainer.querySelector('#btnExportBackup')?.addEventListener('click', () => {
