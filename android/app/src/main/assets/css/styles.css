@@ -90,23 +90,36 @@ html, body {
   flex: 0 0 auto;
 }
 
-@media (max-width: 480px) {
-  body {
+@media (max-width: 600px), (display-mode: standalone) {
+  html, body {
     padding: 0;
+    margin: 0;
+    width: 100vw;
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
+    background: var(--bg);
   }
   .phone {
     max-width: 100%;
-    height: 100vh;
+    width: 100%;
+    height: 100dvh;
     max-height: none;
     border-radius: 0;
     border: none;
     box-shadow: none;
   }
   .notch {
-    display: none;
+    display: none !important;
   }
   .statusbar {
-    height: 12px;
+    display: none !important;
+  }
+  .app-topbar {
+    padding: max(12px, env(safe-area-inset-top, 12px)) 18px 12px;
+  }
+  .app-content {
+    padding: 10px 16px calc(var(--bottom-bar-height) + env(safe-area-inset-bottom, 12px) + 24px);
   }
 }
 
@@ -124,21 +137,17 @@ html, body {
 .topbar-brand {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 18px;
+  gap: 9px;
+  font-size: 19px;
   font-weight: 800;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
   color: var(--text);
-}
-
-.topbar-brand span {
-  color: var(--wine);
 }
 
 .brand-svg-icon {
-  width: 20px;
-  height: 20px;
-  color: var(--text);
+  width: 22px;
+  height: 22px;
+  stroke: var(--wine);
 }
 
 .topbar-actions {
@@ -562,34 +571,41 @@ svg.icon {
 
 .seg {
   display: flex;
-  gap: 4px;
+  gap: 5px;
   background: var(--surface-2);
-  padding: 3px;
-  border-radius: 12px;
+  padding: 4px;
+  border-radius: 14px;
   border: 1px solid var(--border-soft);
   flex: 0 0 auto;
 }
 
 .seg button {
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
+  min-width: 36px;
+  height: 36px;
+  border-radius: 10px;
   border: none;
   background: transparent;
-  color: var(--text-faint);
-  font-size: 11px;
+  color: var(--text-muted);
+  font-size: 13px;
   font-weight: 800;
   font-family: inherit;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.1s ease;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
 
 .seg button.sel {
   background: var(--wine);
   color: #f7e9ec;
+  box-shadow: 0 4px 12px -2px var(--wine-glow);
+}
+
+.seg button:active {
+  transform: scale(0.92);
 }
 
 /* ==========================================================================
@@ -647,35 +663,40 @@ svg.icon {
   background: var(--surface-2);
   border: 1px solid var(--border-soft);
   border-radius: 12px;
-  padding: 5px 6px;
+  padding: 4px 6px;
   flex: 0 0 auto;
 }
 
 .stepper button {
-  width: 22px;
-  height: 22px;
-  border-radius: 7px;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
   border: none;
   background: var(--surface-3);
   color: var(--text);
   font-weight: 800;
-  font-size: 13px;
+  font-size: 16px;
   font-family: inherit;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.12s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .stepper button:active {
-  background: var(--border);
+  background: var(--wine);
+  color: #fff;
+  transform: scale(0.92);
 }
 
 .stepper .val {
-  font-size: 13px;
-  font-weight: 800;
-  min-width: 18px;
+  min-width: 34px;
   text-align: center;
+  font-size: 14.5px;
+  font-weight: 800;
   color: var(--text);
 }
 
@@ -900,3 +921,88 @@ svg.icon {
   background: var(--wine-deep);
   color: #fce8eb;
 }
+
+/* ==========================================================================
+   BARRA DE NAVEGACIÓN INFERIOR (BOTTOM NAV) — DISEÑO ERGONÓMICO MÓVIL
+   ========================================================================== */
+.bottom-nav {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(var(--bottom-bar-height) + var(--safe-bottom));
+  padding-bottom: var(--safe-bottom);
+  background: rgba(12, 12, 14, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border-soft);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  z-index: 50;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
+}
+
+@media (max-width: 600px), (display-mode: standalone) {
+  .bottom-nav {
+    position: fixed;
+    height: auto;
+    min-height: 62px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 10px));
+  }
+}
+
+.nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  color: var(--text-faint);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 8px 2px;
+  min-height: 50px;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nav-item svg.icon {
+  width: 21px;
+  height: 21px;
+  stroke: var(--text-faint);
+  stroke-width: 1.7;
+  transition: all 0.18s ease;
+}
+
+.nav-item span {
+  transition: all 0.18s ease;
+  letter-spacing: 0.01em;
+}
+
+.nav-item.active {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.nav-item.active svg.icon {
+  stroke: var(--wine);
+  transform: translateY(-2px);
+  filter: drop-shadow(0 2px 8px var(--wine-glow));
+}
+
+.nav-item.active span {
+  color: #f7e9ec;
+}
+
+.nav-item:active {
+  transform: scale(0.92);
+}
+

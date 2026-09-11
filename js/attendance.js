@@ -132,9 +132,17 @@ function formatDateNav(isoDate) {
   const parts = isoDate.split('-');
   if (parts.length !== 3) return isoDate;
   const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-  const weekday = d.toLocaleDateString('es-CO', { weekday: 'long' });
-  const capitalizedWeekday = weekday.charAt(0).toUpperCase() + weekday.slice(1);
+  const today = new Date();
+  const isToday = d.getFullYear() === today.getFullYear() &&
+                  d.getMonth() === today.getMonth() &&
+                  d.getDate() === today.getDate();
+
   const dayNum = d.getDate();
   const month = d.toLocaleDateString('es-CO', { month: 'short' }).replace('.', '');
-  return `${capitalizedWeekday} ${dayNum} ${month}`;
+  if (isToday) {
+    return `Hoy, ${dayNum} de ${month}`;
+  }
+  const weekday = d.toLocaleDateString('es-CO', { weekday: 'short' });
+  const capWeekday = weekday.charAt(0).toUpperCase() + weekday.slice(1);
+  return `${capWeekday}, ${dayNum} de ${month}`;
 }
