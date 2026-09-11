@@ -412,71 +412,7 @@ class AppVolley {
     });
   }
 
-  // =========================================================================
-  // AJUSTES / EXPORTAR / RESPALDO
-  // =========================================================================
-  renderSettingsView() {
-    this.mainContainer.innerHTML = `
-      <div class="screen-head">
-        <div class="greet">Configuración</div>
-        <h2>Ajustes y Datos</h2>
-      </div>
-
-      <div style="display:flex; flex-direction:column; gap:12px;">
-        <div class="stat-chip" style="padding:16px;">
-          <div style="font-size:14px; font-weight:700; margin-bottom:4px;">Copia de Seguridad</div>
-          <p style="font-size:12px; color:var(--text-muted); margin:0 0 14px; line-height:1.4;">
-            Descarga tus datos completos o expórtalos en formato Excel (.csv).
-          </p>
-          <div style="display:flex; flex-direction:column; gap:8px;">
-            <button class="btn-ghost" id="btnExportDataJSON" style="width:100%;">
-              Descargar Respaldo (.json)
-            </button>
-            <button class="btn-ghost" id="btnExportAttendanceCSV" style="width:100%;">
-              Exportar Asistencias (.csv)
-            </button>
-          </div>
-        </div>
-
-        <div class="stat-chip" style="padding:16px;">
-          <div style="font-size:14px; font-weight:700; margin-bottom:4px;">Datos Oficiales de Vóley</div>
-          <p style="font-size:12px; color:var(--text-muted); margin:0 0 14px; line-height:1.4;">
-            Restablece las categorías oficiales (Sub 11, Benjamín, Alevín, Sub 13, Sub 15, Sub 17) y la lista de alumnas original del archivo.
-          </p>
-          <button class="btn-ghost" id="btnResetToDefaults" style="width:100%; color:var(--wine);">
-            Restaurar Alumnas del Excel
-          </button>
-        </div>
-      </div>
-    `;
-
-    this.mainContainer.querySelector('#btnExportDataJSON')?.addEventListener('click', () => {
-      const backup = store.exportFullBackup();
-      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `volleytrack_backup_${new Date().toISOString().split('T')[0]}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      this.showToast('Copia de seguridad descargada', 'success');
-    });
-
-    this.mainContainer.querySelector('#btnExportAttendanceCSV')?.addEventListener('click', () => {
-      this.exportAttendanceToCSV();
-    });
-
-    this.mainContainer.querySelector('#btnResetToDefaults')?.addEventListener('click', () => {
-      if (confirm('¿Restablecer las alumnas y categorías oficiales del archivo Excel?')) {
-        store.resetToExcelDefaults();
-        this.currentDivisionId = store.getActiveDivisionId();
-        this.showToast('Datos del Excel restaurados', 'success');
-        this.activeTab = 'divisions';
-        this.updateNavActiveState('divisions');
-        this.renderDivisionsView();
-      }
-    });
-  }
+  // (old renderSettingsView removed — using the one below)
 
   exportAttendanceToCSV() {
     const attendanceMap = store.getAttendanceMap();
@@ -719,18 +655,26 @@ class AppVolley {
 
     modal.querySelector('#studentForm')?.addEventListener('submit', (e) => {
       e.preventDefault();
-      const name = modal.querySelector('#stuName').value;
+      const name = modal.querySelector('#stuName').value.trim();
       const birthDate = modal.querySelector('#stuBirthDate').value;
       const jerseyNumber = modal.querySelector('#stuJersey').value;
       const divisionId = modal.querySelector('#stuDivision').value;
       const position = modal.querySelector('#stuPosition').value;
 
+      if (!name) {
+        modal.querySelector('#stuName').focus();
+        return;
+      }
+
       if (isEdit) {
         store.updateStudent(studentId, { name, birthDate, jerseyNumber, divisionId, position });
-        this.showToast('Alumna actualizada', 'success');
+        this.showToast('Alumna actualizada ✓', 'success');
       } else {
         store.addStudent({ name, birthDate, jerseyNumber, divisionId, position });
-        this.showToast(`${name} agregada`, 'success');
+        // Preserve division context after adding
+        this.currentDivisionId = divisionId;
+        store.setActiveDivisionId(divisionId);
+        this.showToast(`${name} agregada ✓`, 'success');
       }
 
       closeModal();
@@ -873,22 +817,23 @@ class AppVolley {
           const isAndroidApp = window.location.protocol === 'https:' && window.location.hostname === 'appassets.androidplatform.net';
 
           if (isAndroidApp) {
-            // En APK Android: abrir la página de descarga directa
+            // En APK Android: mostrar modal para descargar nuevo APK
             const modalHtml = `
-              <div class="modal-backdrop" id="updateApkModal">
+              <div class="modal-overlay" id="updateApkModal">
                 <div class="modal-sheet">
                   <div class="modal-header">
                     <div>
-                      <div class="modal-title">Actualización de VolleyTrack</div>
+                      <div class="modal-title">Actualización disponible</div>
                       <div class="modal-subtitle">Descarga e instala el último APK</div>
                     </div>
                     <button class="modal-close-btn" id="btnCloseApkModal">&times;</button>
                   </div>
-                  <p style="font-size:13.5px; color:var(--text-muted); line-height:1.5; margin:14px 0;">
-                    El código interno se ha sincronizado. Para actualizar la instalación base de Android con las últimas mejoras, descarga el nuevo instalador APK. Tus datos guardados se mantendrán intactos.
+                  <p style="font-size:13.5px; color:var(--text-muted); line-height:1.6; margin:14px 0;">
+                    El contenido interno ya se actualizó. Para aplicar mejoras al instalador base de Android, descarga el nuevo APK. Tus datos guardados se conservan al reinstalar.
                   </p>
-                  <a href="https://github.com/EverDCA/AppVolley/actions" target="_blank" class="btn-primary" style="text-decoration:none; width:100%; justify-content:center;">
-                    Descargar nuevo APK desde GitHub
+                  <a href="https://github.com/EverDCA/AppVolley/actions" target="_blank" class="btn-update-action" style="text-decoration:none; display:flex; align-items:center; justify-content:center; gap:8px;">
+                    <svg class="icon" viewBox="0 0 24 24" width="16" height="16" stroke="#fff"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                    Descargar nuevo APK
                   </a>
                 </div>
               </div>
